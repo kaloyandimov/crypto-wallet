@@ -2,6 +2,11 @@ package bg.sofia.uni.fmi.mjt.crypto.service;
 
 import bg.sofia.uni.fmi.mjt.crypto.dto.Asset;
 import bg.sofia.uni.fmi.mjt.crypto.exception.AssetServiceException;
+import bg.sofia.uni.fmi.mjt.crypto.exception.BadRequestException;
+import bg.sofia.uni.fmi.mjt.crypto.exception.ForbiddenException;
+import bg.sofia.uni.fmi.mjt.crypto.exception.NoDataException;
+import bg.sofia.uni.fmi.mjt.crypto.exception.TooManyRequestsException;
+import bg.sofia.uni.fmi.mjt.crypto.exception.UnauthorizedException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
@@ -26,6 +31,13 @@ public class DefaultAssetService implements AssetService {
     private static final String API_AUTHORIZATION_HEADER = "X-CoinAPI-Key";
     private static final String API_AUTHORIZATION_KEY = "YOUR_API_KEY_HERE";
 
+    private static final int API_STATUS_CODE_OK = 200;
+    private static final int API_STATUS_CODE_BAD_REQUEST = 400;
+    private static final int API_STATUS_CODE_UNAUTHORIZED = 401;
+    private static final int API_STATUS_CODE_FORBIDDEN = 403;
+    private static final int API_STATUS_CODE_TOO_MANY_REQUESTS = 429;
+    private static final int API_STATUS_CODE_NO_DATA = 550;
+
     private static final Gson GSON = buildCustomGson();
 
     private final HttpClient httpClient;
@@ -48,6 +60,12 @@ public class DefaultAssetService implements AssetService {
             URI uri = new URI(API_SCHEME, API_HOST, API_PATH, API_QUERY, API_FRAGMENT);
             HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTHORIZATION_HEADER, apiKey).build();
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            int statusCode = response.statusCode();
+
+            if (statusCode != API_STATUS_CODE_OK) {
+                throwCorrespondingException(statusCode);
+            }
+
         } catch (URISyntaxException | IOException | InterruptedException e) {
             throw new AssetServiceException("Could not fetch assets", e);
         }
@@ -63,5 +81,16 @@ public class DefaultAssetService implements AssetService {
         builder.registerTypeAdapter(boolean.class, booleanDeserializer);
 
         return builder.create();
+    }
+
+    private void throwCorrespondingException(int statusCode) throws AssetServiceException {
+        throw switch (statusCode) {
+            case API_STATUS_CODE_BAD_REQUEST -> new BadRequestException("Invalid request");
+            case API_STATUS_CODE_UNAUTHORIZED -> new UnauthorizedException("Authentication error");
+            case API_STATUS_CODE_FORBIDDEN -> new ForbiddenException("Not enough permissions");
+            case API_STATUS_CODE_TOO_MANY_REQUESTS -> new TooManyRequestsException("Too many requests");
+            case API_STATUS_CODE_NO_DATA -> new NoDataException("Data not found");
+            default -> new AssetServiceException("Unexpected error");
+        };
     }
 }
