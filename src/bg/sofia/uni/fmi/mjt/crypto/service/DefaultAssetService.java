@@ -42,6 +42,10 @@ public class DefaultAssetService implements AssetService {
 
     private final HttpClient httpClient;
 
+    public DefaultAssetService() {
+        this.httpClient = HttpClient.newBuilder().build();
+    }
+
     public DefaultAssetService(HttpClient httpClient) {
         this.httpClient = httpClient;
     }
