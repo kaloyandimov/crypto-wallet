@@ -8,13 +8,11 @@ import bg.sofia.uni.fmi.mjt.crypto.exception.NoDataException;
 import bg.sofia.uni.fmi.mjt.crypto.exception.TooManyRequestsException;
 import bg.sofia.uni.fmi.mjt.crypto.exception.UnauthorizedException;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -25,15 +23,15 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultAssetServiceTest {
-    private static final String EXPECTED_EXCEPTION_FOR_CODE = "%s expected for status code %d";
-
     private static Asset bitcoin;
     private static Asset ethereum;
-
     private static String assetsJson;
 
     @Mock
@@ -67,16 +65,11 @@ class DefaultAssetServiceTest {
             """;
     }
 
-    @BeforeEach
-    public void setUp() throws IOException, InterruptedException {
-        Mockito.lenient()
-            .when(serviceHttpClientMock.send(Mockito.any(HttpRequest.class),
-                ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
-            .thenReturn(serviceResponseMock);
-    }
-
     @Test
-    public void testGetAssetsSuccess() throws AssetServiceException {
+    public void testGetAssetsSuccess() throws AssetServiceException, IOException, InterruptedException {
+        when(serviceHttpClientMock.send(any(HttpRequest.class),
+            ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
+            .thenReturn(serviceResponseMock);
         when(serviceResponseMock.statusCode()).thenReturn(200);
         when(serviceResponseMock.body()).thenReturn(assetsJson);
 
@@ -85,66 +78,80 @@ class DefaultAssetServiceTest {
 
         assertTrue(actual.containsAll(expected), "Actual set should contain all the expected elements");
         assertTrue(expected.containsAll(actual), "Expected set should contain all the actual elements");
+
+        verify(serviceHttpClientMock).send(any(HttpRequest.class), any());
+        verify(serviceResponseMock).statusCode();
+        verify(serviceResponseMock).body();
     }
 
     @Test
-    public void testGetAssetsThrowsBadRequestException() {
-        when(serviceResponseMock.statusCode()).thenReturn(400);
-        assertThrows(BadRequestException.class, () -> service.getAssets(),
-            EXPECTED_EXCEPTION_FOR_CODE.formatted("BadRequestException", 400));
+    public void testGetAssetsThrowsBadRequestException() throws IOException, InterruptedException {
+        assertThrowsAppropriateExceptionForStatusCode(BadRequestException.class, 400);
     }
 
     @Test
-    public void testGetAssetsThrowsUnauthorizedException() {
-        when(serviceResponseMock.statusCode()).thenReturn(401);
-        assertThrows(UnauthorizedException.class, () -> service.getAssets(),
-            EXPECTED_EXCEPTION_FOR_CODE.formatted("UnauthorizedException", 401));
+    public void testGetAssetsThrowsUnauthorizedException() throws IOException, InterruptedException {
+        assertThrowsAppropriateExceptionForStatusCode(UnauthorizedException.class, 401);
     }
 
     @Test
-    public void testGetAssetsThrowsForbiddenException() {
-        when(serviceResponseMock.statusCode()).thenReturn(403);
-        assertThrows(ForbiddenException.class, () -> service.getAssets(),
-            EXPECTED_EXCEPTION_FOR_CODE.formatted("ForbiddenException", 403));
+    public void testGetAssetsThrowsForbiddenException() throws IOException, InterruptedException {
+        assertThrowsAppropriateExceptionForStatusCode(ForbiddenException.class, 403);
     }
 
     @Test
-    public void testGetAssetsThrowsTooManyRequestsException() {
-        when(serviceResponseMock.statusCode()).thenReturn(429);
-        assertThrows(TooManyRequestsException.class, () -> service.getAssets(),
-            EXPECTED_EXCEPTION_FOR_CODE.formatted("TooManyRequestsException", 429));
+    public void testGetAssetsThrowsTooManyRequestsException() throws IOException, InterruptedException {
+        assertThrowsAppropriateExceptionForStatusCode(TooManyRequestsException.class, 429);
     }
 
     @Test
-    public void testGetAssetsThrowsNoDataException() {
-        when(serviceResponseMock.statusCode()).thenReturn(550);
-        assertThrows(NoDataException.class, () -> service.getAssets(),
-            EXPECTED_EXCEPTION_FOR_CODE.formatted("NoDataException", 550));
+    public void testGetAssetsThrowsNoDataException() throws IOException, InterruptedException {
+        assertThrowsAppropriateExceptionForStatusCode(NoDataException.class, 550);
     }
 
     @Test
-    public void testGetAssetsThrowsAssetServiceExceptionForUnknownStatusCode() {
-        when(serviceResponseMock.statusCode()).thenReturn(666);
-        assertThrows(AssetServiceException.class, () -> service.getAssets(),
-            EXPECTED_EXCEPTION_FOR_CODE.formatted("AssetServiceException", 666));
+    public void testGetAssetsThrowsAssetServiceExceptionForUnknownStatusCode()
+        throws IOException, InterruptedException {
+        assertThrowsAppropriateExceptionForStatusCode(AssetServiceException.class, 666);
     }
 
     @Test
     public void testGetAssetsThrowsAssetServiceExceptionForIOException() throws IOException, InterruptedException {
-        when(serviceHttpClientMock.send(Mockito.any(HttpRequest.class),
-            ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
-            .thenThrow(IOException.class);
-        assertThrows(AssetServiceException.class, () -> service.getAssets(),
-            "AssetServiceException expected in place of IOException");
+        assertThrowsAssetServiceExceptionInPlaceOf(IOException.class);
     }
 
     @Test
     public void testGetAssetsThrowsAssetServiceExceptionForInterruptedException()
         throws IOException, InterruptedException {
-        when(serviceHttpClientMock.send(Mockito.any(HttpRequest.class),
+        assertThrowsAssetServiceExceptionInPlaceOf(InterruptedException.class);
+    }
+
+    private void assertThrowsAppropriateExceptionForStatusCode(Class<? extends AssetServiceException> exceptionClass, int statusCode)
+        throws IOException, InterruptedException {
+        when(serviceHttpClientMock.send(any(HttpRequest.class),
             ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
-            .thenThrow(InterruptedException.class);
+            .thenReturn(serviceResponseMock);
+        when(serviceResponseMock.statusCode()).thenReturn(statusCode);
+
+        assertThrows(exceptionClass, () -> service.getAssets(),
+            exceptionClass.getSimpleName() + " expected for status code " + statusCode);
+
+        verify(serviceHttpClientMock).send(any(HttpRequest.class), any());
+        verify(serviceResponseMock).statusCode();
+        verify(serviceResponseMock, never()).body();
+    }
+
+    private void assertThrowsAssetServiceExceptionInPlaceOf(Class<? extends Exception> exceptionClass)
+        throws IOException, InterruptedException {
+        when(serviceHttpClientMock.send(any(HttpRequest.class),
+            ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
+            .thenThrow(exceptionClass);
+
         assertThrows(AssetServiceException.class, () -> service.getAssets(),
-            "AssetServiceException expected in place of InterruptedException");
+            "AssetServiceException expected in place of " + exceptionClass.getSimpleName());
+
+        verify(serviceHttpClientMock).send(any(HttpRequest.class), any());
+        verify(serviceResponseMock, never()).statusCode();
+        verify(serviceResponseMock, never()).body();
     }
 }
