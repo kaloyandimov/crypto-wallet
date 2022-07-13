@@ -22,14 +22,14 @@ import java.net.http.HttpResponse;
 import java.util.Set;
 
 public class DefaultAssetService implements AssetService {
+    private static final String API_AUTH_HEADER = "X-CoinAPI-Key";
+    private static final String API_AUTH_KEY = "YOUR_API_KEY_HERE";
+
     private static final String API_SCHEME = "https";
     private static final String API_HOST = "rest.coinapi.io";
     private static final String API_PATH = "/v1/assets";
     private static final String API_QUERY = null;
     private static final String API_FRAGMENT = null;
-
-    private static final String API_AUTHORIZATION_HEADER = "X-CoinAPI-Key";
-    private static final String API_AUTHORIZATION_KEY = "YOUR_API_KEY_HERE";
 
     private static final int API_STATUS_CODE_OK = 200;
     private static final int API_STATUS_CODE_BAD_REQUEST = 400;
@@ -44,7 +44,7 @@ public class DefaultAssetService implements AssetService {
     private final String apiKey;
 
     public DefaultAssetService(HttpClient httpClient) {
-        this(httpClient, API_AUTHORIZATION_KEY);
+        this(httpClient, API_AUTH_KEY);
     }
 
     public DefaultAssetService(HttpClient httpClient, String apiKey) {
@@ -58,8 +58,9 @@ public class DefaultAssetService implements AssetService {
 
         try {
             URI uri = new URI(API_SCHEME, API_HOST, API_PATH, API_QUERY, API_FRAGMENT);
-            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTHORIZATION_HEADER, apiKey).build();
+            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTH_HEADER, apiKey).build();
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
             int statusCode = response.statusCode();
 
             if (statusCode != API_STATUS_CODE_OK) {
