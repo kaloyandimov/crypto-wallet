@@ -41,15 +41,9 @@ public class DefaultAssetService implements AssetService {
     private static final Gson GSON = buildCustomGson();
 
     private final HttpClient httpClient;
-    private final String apiKey;
 
     public DefaultAssetService(HttpClient httpClient) {
-        this(httpClient, API_AUTH_KEY);
-    }
-
-    public DefaultAssetService(HttpClient httpClient, String apiKey) {
         this.httpClient = httpClient;
-        this.apiKey = apiKey;
     }
 
     @Override
@@ -58,7 +52,7 @@ public class DefaultAssetService implements AssetService {
 
         try {
             URI uri = new URI(API_SCHEME, API_HOST, API_PATH, API_QUERY, API_FRAGMENT);
-            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTH_HEADER, apiKey).build();
+            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTH_HEADER, API_AUTH_KEY).build();
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             int statusCode = response.statusCode();
