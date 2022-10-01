@@ -31,6 +31,8 @@ public class DefaultAssetService implements AssetService {
     private static final String API_QUERY = null;
     private static final String API_FRAGMENT = null;
 
+    private static final String FORMAT_API_PATH_TO_ASSET = API_PATH + "/%s";
+
     private static final int API_STATUS_CODE_OK = 200;
     private static final int API_STATUS_CODE_BAD_REQUEST = 400;
     private static final int API_STATUS_CODE_UNAUTHORIZED = 401;
@@ -51,25 +53,17 @@ public class DefaultAssetService implements AssetService {
     }
 
     @Override
+    public Asset getAsset(String id) throws AssetServiceException {
+        HttpResponse<String> response = submitRequest(FORMAT_API_PATH_TO_ASSET.formatted(id));
+
+        return GSON.fromJson(response.body(), Asset.class);
+    }
+
+    @Override
     public Set<Asset> getAssets() throws AssetServiceException {
-        HttpResponse<String> response;
-
-        try {
-            URI uri = new URI(API_SCHEME, API_HOST, API_PATH, API_QUERY, API_FRAGMENT);
-            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTH_HEADER, API_AUTH_KEY).build();
-            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            int statusCode = response.statusCode();
-
-            if (statusCode != API_STATUS_CODE_OK) {
-                throwCorrespondingException(statusCode);
-            }
-
-        } catch (URISyntaxException | IOException | InterruptedException e) {
-            throw new AssetServiceException("Could not fetch assets", e);
-        }
-
+        HttpResponse<String> response = submitRequest(API_PATH);
         Type setType = new TypeToken<Set<Asset>>() { }.getType();
+
         return GSON.fromJson(response.body(), setType);
     }
 
@@ -82,11 +76,32 @@ public class DefaultAssetService implements AssetService {
         return builder.create();
     }
 
+    private HttpResponse<String> submitRequest(String path) throws AssetServiceException {
+        HttpResponse<String> response;
+
+        try {
+            URI uri = new URI(API_SCHEME, API_HOST, path, API_QUERY, API_FRAGMENT);
+            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTH_HEADER, API_AUTH_KEY).build();
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            int statusCode = response.statusCode();
+
+            if (statusCode != API_STATUS_CODE_OK) {
+                throwCorrespondingException(statusCode);
+            }
+
+        } catch (URISyntaxException | IOException | InterruptedException e) {
+            throw new AssetServiceException("Could not fetch asset(s)", e);
+        }
+
+        return response;
+    }
+
     private void throwCorrespondingException(int statusCode) throws AssetServiceException {
         throw switch (statusCode) {
             case API_STATUS_CODE_BAD_REQUEST -> new BadRequestException("Invalid request");
             case API_STATUS_CODE_UNAUTHORIZED -> new UnauthorizedException("Authentication error");
-            case API_STATUS_CODE_FORBIDDEN -> new ForbiddenException("Not enough permissions");
+            case API_STATUS_CODE_FORBIDDEN -> new ForbiddenException("Access denied");
             case API_STATUS_CODE_TOO_MANY_REQUESTS -> new TooManyRequestsException("Too many requests");
             case API_STATUS_CODE_NO_DATA -> new NoDataException("Data not found");
             default -> new AssetServiceException("Unexpected error");
