@@ -1,6 +1,7 @@
 package bg.sofia.uni.fmi.mjt.crypto.storage;
 
 import bg.sofia.uni.fmi.mjt.crypto.exception.UserAlreadyExistsException;
+import bg.sofia.uni.fmi.mjt.crypto.user.DefaultCryptoUser;
 import bg.sofia.uni.fmi.mjt.crypto.user.User;
 
 import java.io.BufferedReader;
@@ -13,16 +14,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-public class DefaultUserStorage implements UserStorage {
+public class DefaultCryptoUserStorage implements CryptoUserStorage {
+    private static final String FORMAT_NEW_USER = "%s;%s;0.0;;";
     private static final String LINE_SEPARATOR = System.lineSeparator();
-
     private static final String DELIMITER_FIELD = ";";
 
     private static final Path TEMPORARY_FILE_PATH = Path.of("temporary-user-database.csv");
 
     private final Path filePath;
 
-    public DefaultUserStorage(Path filePath) {
+    public DefaultCryptoUserStorage(Path filePath) {
         this.filePath = filePath;
     }
 
@@ -37,7 +38,7 @@ public class DefaultUserStorage implements UserStorage {
                 String currentUsername = line.substring(0, line.indexOf(DELIMITER_FIELD));
 
                 if (currentUsername.equals(username)) {
-                    user = User.of(line);
+                    user = DefaultCryptoUser.of(line);
                 }
             }
 
@@ -50,13 +51,13 @@ public class DefaultUserStorage implements UserStorage {
         return user;
     }
 
-    public void add(User user) throws UserAlreadyExistsException {
-        if (isUsernameTaken(user.getUsername())) {
+    public void add(String username, String password) throws UserAlreadyExistsException {
+        if (getUser(username) != null) {
             throw new UserAlreadyExistsException("Username is taken");
         }
 
         try (var bufferedWriter = new BufferedWriter(new FileWriter(filePath.toString(), true))) {
-            bufferedWriter.write(user + LINE_SEPARATOR);
+            bufferedWriter.write(FORMAT_NEW_USER.formatted(username, password) + LINE_SEPARATOR);
         } catch (IOException exception) {
             throw new RuntimeException("Could not write user to file", exception);
         }
@@ -84,9 +85,5 @@ public class DefaultUserStorage implements UserStorage {
         } catch (IOException exception) {
             throw new RuntimeException("Could not update user", exception);
         }
-    }
-
-    private boolean isUsernameTaken(String username) {
-        return getUser(username) != null;
     }
 }
