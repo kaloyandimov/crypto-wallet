@@ -9,6 +9,7 @@ import bg.sofia.uni.fmi.mjt.crypto.service.DefaultAssetService;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -55,14 +56,43 @@ public class DefaultAssetStorage implements AssetStorage {
     }
 
     @Override
-    public Asset getAsset(String assetId) throws AssetStorageException {
+    public Asset getAsset(String id) throws AssetStorageException {
         requireUpToDate();
 
-        if (!assets.containsKey(assetId)) {
-            throw new UnknownAssetException("Unknown asset: " + assetId);
+        if (!assets.containsKey(id)) {
+            throw new UnknownAssetException("Unknown asset: " + id);
         }
 
-        return assets.get(assetId);
+        return assets.get(id);
+    }
+
+    @Override
+    public List<Asset> getAssets() throws AssetStorageException {
+        requireUpToDate();
+
+        return List.copyOf(assets.values());
+    }
+
+    @Override
+    public Double getAssetPrice(String id) throws AssetStorageException {
+        requireUpToDate();
+
+        Asset asset = assets.get(id);
+        return asset != null ? asset.getPrice() : 0.0;
+    }
+
+    @Override
+    public Map<String, Double> getAssetPrices(List<String> ids) throws AssetStorageException {
+        requireUpToDate();
+
+        return ids.stream()
+            .collect(Collectors.toMap(Function.identity(), id -> {
+                try {
+                    return getAssetPrice(id);
+                } catch (AssetStorageException e) {
+                    return 0.0;
+                }
+            }));
     }
 
     private void requireUpToDate() throws AssetStorageException {
