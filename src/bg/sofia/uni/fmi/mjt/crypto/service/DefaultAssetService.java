@@ -22,8 +22,11 @@ import java.net.http.HttpResponse;
 import java.util.Set;
 
 public class DefaultAssetService implements AssetService {
-    private static final String API_AUTH_HEADER = "X-CoinAPI-Key";
-    private static final String API_AUTH_KEY = "YOUR_API_KEY_HERE";
+    private static final String API_HEADER_AUTH = "X-CoinAPI-Key";
+    private static final String API_HEADER_ACCEPT = "Accept";
+
+    private static final String API_AUTH_KEY = "YOUR_API_KEY";
+    private static final String API_ACCEPT_JSON = "application/json";
 
     private static final String API_SCHEME = "https";
     private static final String API_HOST = "rest.coinapi.io";
@@ -81,7 +84,11 @@ public class DefaultAssetService implements AssetService {
 
         try {
             URI uri = new URI(API_SCHEME, API_HOST, path, API_QUERY, API_FRAGMENT);
-            HttpRequest request = HttpRequest.newBuilder(uri).header(API_AUTH_HEADER, API_AUTH_KEY).build();
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                .header(API_HEADER_AUTH, API_AUTH_KEY)
+                .header(API_HEADER_ACCEPT, API_ACCEPT_JSON)
+                .build();
+
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             int statusCode = response.statusCode();
@@ -89,7 +96,6 @@ public class DefaultAssetService implements AssetService {
             if (statusCode != API_STATUS_CODE_OK) {
                 throwCorrespondingException(statusCode);
             }
-
         } catch (URISyntaxException | IOException | InterruptedException e) {
             throw new AssetServiceException("Could not fetch asset(s)", e);
         }
