@@ -47,6 +47,7 @@ public class DefaultCryptoUser implements CryptoUser {
         return password;
     }
 
+    @Override
     public CryptoWallet getWallet() {
         return wallet;
     }
