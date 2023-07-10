@@ -1,8 +1,8 @@
 package bg.sofia.uni.fmi.mjt.crypto.storage;
 
 import bg.sofia.uni.fmi.mjt.crypto.exception.UserAlreadyExistsException;
+import bg.sofia.uni.fmi.mjt.crypto.user.CryptoUser;
 import bg.sofia.uni.fmi.mjt.crypto.user.DefaultCryptoUser;
-import bg.sofia.uni.fmi.mjt.crypto.user.User;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -10,80 +10,66 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DefaultCryptoUserStorage implements CryptoUserStorage {
-    private static final String FORMAT_NEW_USER = "%s;%s;0.0;;";
     private static final String LINE_SEPARATOR = System.lineSeparator();
-    private static final String DELIMITER_FIELD = ";";
 
-    private static final Path TEMPORARY_FILE_PATH = Path.of("temporary-user-database.csv");
+    private final Map<String, CryptoUser> users;
+    private final String filePath;
 
-    private final Path filePath;
-
-    public DefaultCryptoUserStorage(Path filePath) {
+    public DefaultCryptoUserStorage(String filePath) {
+        this.users = new HashMap<>();
         this.filePath = filePath;
+
+        load();
     }
 
     @Override
-    public User getUser(String username) {
-        User user = null;
-
-        try (var bufferedReader = new BufferedReader(new FileReader(filePath.toString()))) {
-            String line;
-
-            while (user == null && (line = bufferedReader.readLine()) != null) {
-                String currentUsername = line.substring(0, line.indexOf(DELIMITER_FIELD));
-
-                if (currentUsername.equals(username)) {
-                    user = DefaultCryptoUser.of(line);
-                }
-            }
-
-        } catch (FileNotFoundException exception) {
-            throw new RuntimeException("Could not read file", exception);
-        } catch (IOException exception) {
-            throw new RuntimeException("Could not retrieve user from storage", exception);
-        }
-
-        return user;
+    public CryptoUser get(String username) {
+        return users.get(username);
     }
 
-    public void add(String username, String password) throws UserAlreadyExistsException {
-        if (getUser(username) != null) {
+    @Override
+    public void add(CryptoUser user) throws UserAlreadyExistsException {
+        if (users.containsKey(user.getUsername())) {
             throw new UserAlreadyExistsException("Username is taken");
         }
 
-        try (var bufferedWriter = new BufferedWriter(new FileWriter(filePath.toString(), true))) {
-            bufferedWriter.write(FORMAT_NEW_USER.formatted(username, password) + LINE_SEPARATOR);
+        users.put(user.getUsername(), user);
+    }
+
+    @Override
+    public void update(CryptoUser user) {
+        users.replace(user.getUsername(), user);
+
+        persist();
+    }
+
+    private void persist() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            for (CryptoUser user : users.values()) {
+                writer.write(user + LINE_SEPARATOR);
+            }
         } catch (IOException exception) {
-            throw new RuntimeException("Could not write user to file", exception);
+            throw new RuntimeException("Could not persist users", exception);
         }
     }
 
-    public void update(User user) {
-        try (var bufferedReader = new BufferedReader(new FileReader(filePath.toString()));
-             var bufferedWriter = new BufferedWriter(new FileWriter(TEMPORARY_FILE_PATH.toString()))) {
+    private void load() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
 
-            while ((line = bufferedReader.readLine()) != null) {
-                String currentUsername = line.substring(0, line.indexOf(DELIMITER_FIELD));
+            while ((line = reader.readLine()) != null) {
+                CryptoUser user = DefaultCryptoUser.of(line);
 
-                if (currentUsername.equals(user.getUsername())) {
-                    bufferedWriter.write(user + LINE_SEPARATOR);
-                } else {
-                    bufferedWriter.write(line + LINE_SEPARATOR);
-                }
+                users.put(user.getUsername(), user);
             }
-
-            Files.move(TEMPORARY_FILE_PATH, filePath, StandardCopyOption.REPLACE_EXISTING);
-
         } catch (FileNotFoundException exception) {
-            throw new RuntimeException("Could not read file", exception);
+            //
         } catch (IOException exception) {
-            throw new RuntimeException("Could not update user", exception);
+            throw new RuntimeException("Could not retrieve users", exception);
         }
     }
 }

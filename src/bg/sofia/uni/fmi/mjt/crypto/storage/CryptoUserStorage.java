@@ -1,12 +1,12 @@
 package bg.sofia.uni.fmi.mjt.crypto.storage;
 
 import bg.sofia.uni.fmi.mjt.crypto.exception.UserAlreadyExistsException;
-import bg.sofia.uni.fmi.mjt.crypto.user.User;
+import bg.sofia.uni.fmi.mjt.crypto.user.CryptoUser;
 
 public interface CryptoUserStorage {
-    User getUser(String username);
+    CryptoUser get(String username);
 
-    void add(String username, String password) throws UserAlreadyExistsException;
+    void add(CryptoUser user) throws UserAlreadyExistsException;
 
-    void update(User user);
+    void update(CryptoUser user);
 }
